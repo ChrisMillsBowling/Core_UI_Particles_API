@@ -1,0 +1,16 @@
+Features
+
+API
+This should be an API so that creators can easily call to add animation to any GUI element.
+
+Library
+Build a library of animations so that creators have different animations to choose from. The animations should be the type of animations that are commonly used and needed for GUI animations (slide in/out, scale up/down, etc).
+
+Use Curves
+The new Curves feature in Core is perfect for this task since it provides a simple way to create very powerful GUI animations. It is also much easier to understand and customize animations using the Curve editor.
+
+Flexibility
+Your system should be as flexible as possible so that creators can specify or override common animation parameters such as speed in, speed out, static duration, direction, positioning, easing, etc.
+
+Events
+Consider broadcasting a custom event for when the animation starts, pauses, and ends. This allows creators to listen to those events and add custom handlers. Allow creators to define the name of the events via custom properties.
