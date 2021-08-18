@@ -32,6 +32,10 @@ Consider broadcasting a custom event for when the animation starts, pauses, and 
 ]]
 local UIParticlesAPI = {}
 
+--This is the spawned particle template--
+local UI_Default_Particle = script:GetCustomProperty("UI_Default_Particle")
+
+
 UIParticlesAPI.Ease =
 {
     Linear="Linear",
@@ -54,28 +58,98 @@ UIParticlesAPI.Spawn = function(Particle_Settings)
     local Particle_Emitter =
     {
         Particle_Image=nil,
+        Particle_Size=nil,
         Location=Vector2.ONE/2,
         Color=Color.GREEN,
         Shape=UIParticlesAPI.Shapes.Point,
         Lifespan=1,
         Timescale=1, --This means a complete loop will be over 1 second!
+        Parent=nil,
         --Curve Data--
         Particle_Size_Curve=nil,
-        Particle_Speed_Curve=nil,
+        Particle_Position_Curve=nil,
         Particle_Spawn_Rate_Curve=nil,
         Particle_X_Offset_Curve=nil,
         Particle_Y_Offset_Curve=nil,
         --Shape Specific Data--
         Box_Width=1,
         Box_Height=1,
-        Circle_Radius=1
+        Circle_Radius=1,
+
+        --particle system controls--
+        Particle_Emitter=nil
     }
+
+    --creation methods start--
+    --[[ Overview:
+        The idea behind these private methods is that they are the asynchronous tasks
+        That allow and manage the creation of the particle system elements.
+
+        Particle Emitter:
+            This object should create particle tasks as defined by it's properties.
+            This object should be it's own managed task by a turnon turnoff method
+            which is exposed to the end developer.
+        
+        Particle:
+            This object should simply animate a single particle for by the rules given to it at creation.
+            This object should be tracked by the emitter in order to shut down the task at will.
+    ]]--
+
+    local Create_Particle=
+        function()
+            local Particle_Table=
+            {
+                Task=nil,
+                Image=nil
+            }
+            
+            Particle_Table.Task = Task.Spawn(function()
+                if not Particle_Emitter.Parent then error("No Parent Set!") return end
+                Particle_Table.Image = World.SpawnAsset(UI_Default_Particle, {parent=Particle_Emitter.Parent})
+                Particle_Table.Image:SetColor(Particle_Emitter.Color)
+            end)
+            
+
+            return Particle_Table
+        end
+
+    local Create_Particle_Emitter=
+        function()
+            local particles = {}
+
+            local TurnOn=
+                function()
+                    table.insert(particles, Create_Particle())
+                end
+            
+            local TurnOff=
+                function()
+                    for _, particle in pairs(particles) do
+                        if particle.Task then
+                            particle.Task:Cancel()
+                        end
+                        if Object.IsValid(particle.Image) then
+                            particle.Image:Destroy()
+                        end
+                        particle = nil
+                    end
+                    particles = {}
+                end
+            
+            local Particle_Emitter =
+            {
+                TurnOn=TurnOn,
+                TurnOff=TurnOff
+            }
+            return Particle_Emitter
+        end
+
+
 
     --start accessor methods--
     local SetImage =
         function(Image)
-            if not Image then 
-                endreturn end
+            if not Image then return end
             if not Image.type == "UIImage" then return end
             Particle_Emitter.Particle_Image = Image
         end
@@ -116,6 +190,15 @@ UIParticlesAPI.Spawn = function(Particle_Settings)
             Particle_Emitter.Color = Color
         end
 
+    local TurnOff=
+        function()
+            warn("Turn off not implimented")
+        end
+
+    local TurnOn=
+        function()
+            warn("Turn on not implimented")
+        end
     --end accessor methods--    
     
     local Particle_System =
@@ -124,8 +207,14 @@ UIParticlesAPI.Spawn = function(Particle_Settings)
         SetLocation=SetLocation,
         GetLocation=GetLocation,
         SetLifespan=SetLifespan,
-        GetLifespan=GetLifespan
+        GetLifespan=GetLifespan,
+        GetColor=GetColor,
+        SetColor=SetColor,
+        TurnOn=TurnOn,
+        TurnOff=TurnOff
     }
+
+    return Particle_System
 end
 
 return UIParticlesAPI
