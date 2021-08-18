@@ -3,30 +3,22 @@
     This API should allow for the creation of modular "progress bars" with easily applyable advanced effects.
     Users should be able to determine what and how effects should be playered as the progress bar updates.
     Users should find the example project modular enough to begin working with UI elements.
-
 ]]--
 
 --[[challenge notes:
 https://forums.coregames.com/t/challenge-gui-animations/1826
 Description
-
 The goal of this Challenge is to create an API and library of graphical user interface (GUI) animations that creators can use to animate GUI elements in their games. These animations can be used for animating text, images, or just about any other GUI element that needs movement.
-
 The next time you play a PC or mobile game, take note of all the GUI elements that have some sort of animation. This could be a notification that slides on and then off the screen. Or a reward image that scales from small to big. Or an alert that fades in and then out. Or a button that wiggles to get your attention. Basically any GUI element that moves.
 Features
-
 API
 This should be an API so that creators can easily call to add animation to any GUI element.
-
 Library
 Build a library of animations so that creators have different animations to choose from. The animations should be the type of animations that are commonly used and needed for GUI animations (slide in/out, scale up/down, etc).
-
 Use Curves
 The new Curves feature in Core is perfect for this task since it provides a simple way to create very powerful GUI animations. It is also much easier to understand and customize animations using the Curve editor.
-
 Flexibility
 Your system should be as flexible as possible so that creators can specify or override common animation parameters such as speed in, speed out, static duration, direction, positioning, easing, etc.
-
 Events
 Consider broadcasting a custom event for when the animation starts, pauses, and ends. This allows creators to listen to those events and add custom handlers. Allow creators to define the name of the events via custom properties.
 ]]
@@ -63,6 +55,8 @@ UIParticlesAPI.Spawn = function(Particle_Settings)
         Color=Color.GREEN,
         Shape=UIParticlesAPI.Shapes.Point,
         Lifespan=1,
+        Particles_Per_Spawn=1,
+        Particle_Spawn_Rate=1,
         Timescale=1, --This means a complete loop will be over 1 second!
         Parent=nil,
         --Curve Data--
@@ -84,7 +78,6 @@ UIParticlesAPI.Spawn = function(Particle_Settings)
     --[[ Overview:
         The idea behind these private methods is that they are the asynchronous tasks
         That allow and manage the creation of the particle system elements.
-
         Particle Emitter:
             This object should create particle tasks as defined by it's properties.
             This object should be it's own managed task by a turnon turnoff method
@@ -112,26 +105,51 @@ UIParticlesAPI.Spawn = function(Particle_Settings)
 
             return Particle_Table
         end
+                    
 
     local Create_Particle_Emitter=
         function()
             local particles = {}
+            local spawner_task = nil
 
+            --[[
+                Spawns a task to the spawner_task variable that manages to spawn the
+                Spawns the Particles_Per_Spawn value at the rate of Particle_Spawn_Rate
+            ]]--
             local TurnOn=
                 function()
-                    table.insert(particles, Create_Particle())
+                    spawner_task = Task.Spawn(function ()
+                        local time_base = time()
+                        local time_holder = time() - time_base
+                        while true do
+                            time_holder = time() - time_base
+                            if (time_holder > Particle_Emitter.Particle_Spawn_Rate) then
+                                time_base = time()
+                                time_holder = time() - time_base
+                                for i = 1, Particle_Emitter.Particles_Per_Spawn do
+                                    table.insert(particles, Create_Particle())
+                                end
+                            end
+                        end
+                    end)
                 end
             
             local TurnOff=
                 function()
+                    if spawner_task then
+                        spawner_task:Cancel()
+                        spawner_task = nil
+                    end
                     for _, particle in pairs(particles) do
-                        if particle.Task then
-                            particle.Task:Cancel()
+                        if particle then
+                            if particle.Task then
+                                particle.Task:Cancel()
+                            end
+                            if Object.IsValid(particle.Image) then
+                                particle.Image:Destroy()
+                            end
+                            particle = nil
                         end
-                        if Object.IsValid(particle.Image) then
-                            particle.Image:Destroy()
-                        end
-                        particle = nil
                     end
                     particles = {}
                 end
@@ -228,13 +246,9 @@ return UIParticlesAPI
         --Circle
         --Box
         --N-sided shape.
-
     --Note, each of these shapes should be passed a table detailing their behavior!
-
 --Example workshop for use cases 
-
 --I want a sparkly outline for my UI box element. 
-
 --[[
     Particle_Settings = 
     {
@@ -250,23 +264,15 @@ return UIParticlesAPI
         "Size_End" = Vector2.New(.5,.5)
         "Particle_Lifespan"=2
     }
-
     local ps = UIParticleAPI.Spawn(Particle_Settings)
     ps.location = Vector2.ZERO -- Alternatively make it an accessor for saftey!
     ps:SetLocation(Vector2.ZERO)
-
     ps:TrackObject(UI_Panel)
-
     ps:TurnOn()
     ps:TurnOff()
-
     ps:TrackUserMouse()
-
     ps:SetColor(x)
-
     ps:SetWidth(x)
     ps:SetHeight(x)
-
     ps:SetParticleLifeSpan(x)
 ]]
-
